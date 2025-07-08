@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register - Brainstrom</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/main.css">
+    <style>
+        .auth-page {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f4f8;
+        }
+        
+        .auth-container {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .auth-header .logo {
+            font-size: 3rem;
+            color: #4A90E2;
+            margin-bottom: 1rem;
+        }
+        
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .input-with-icon {
+            position: relative;
+        }
+        
+        .input-with-icon i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        
+        .input-with-icon input {
+            padding-left: 40px;
+            width: 100%;
+        }
+        
+        .auth-btn {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .auth-btn:hover {
+            background: #357ABD;
+        }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .auth-footer a {
+            color: #4A90E2;
+            text-decoration: none;
+        }
+        
+        .error-message {
+            color: #ff4d4f;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        
+        .password-strength {
+            margin-top: 5px;
+            height: 5px;
+            background: #eee;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .password-strength-bar {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .weak {
+            width: 30%;
+            background: #ff4d4f;
+        }
+        
+        .medium {
+            width: 60%;
+            background: #ffa502;
+        }
+        
+        .strong {
+            width: 100%;
+            background: #2ed573;
+        }
+        
+        .password-hints {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .username-availability {
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        
+        .available {
+            color: #2ed573;
+        }
+        
+        .unavailable {
+            color: #ff4d4f;
+        }
+    </style>
+</head>
+
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-header">
+            <i class="fas fa-brain logo"></i>
+            <h1>Join Brainstrom</h1>
+            <p>Create your account</p>
+        </div>
+
+        <form class="auth-form" id="registerForm">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="name" placeholder="Enter your full name" required />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-at"></i>
+                    <input type="text" id="username" placeholder="Choose a username" required oninput="checkUsernameAvailability(this.value)" />
+                </div>
+                <div class="username-availability" id="usernameAvailability"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="email" placeholder="Enter your email" required />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Create a password" required oninput="checkPasswordStrength(this.value)" />
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="passwordStrengthBar"></div>
+                </div>
+                <div class="password-hints" id="passwordHints">
+                    Password should be at least 8 characters with uppercase, lowercase, and numbers
+                </div>
+            </div>
+
+            <button type="submit" class="auth-btn" id="registerBtn">Register</button>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="login.html">Login here</a></p>
+            </div>
+
+            <p id="errorMessage" class="error-message"></p>
+        </form>
+    </div>
+
+    <script>
+        async function checkUsernameAvailability(username) {
+            const availabilityEl = document.getElementById('usernameAvailability');
+            if (!username || username.length < 3) {
+                availabilityEl.textContent = '';
+                availabilityEl.className = 'username-availability';
+                return;
+            }
+
+            try {
+                const res = await fetch(`http://localhost:5000/api/users/check-username?username=${encodeURIComponent(username)}`);
+                const data = await res.json();
+
+                if (data.available) {
+                    availabilityEl.textContent = 'Username is available';
+                    availabilityEl.className = 'username-availability available';
+                } else {
+                    availabilityEl.textContent = 'Username is taken';
+                    availabilityEl.className = 'username-availability unavailable';
+                }
+            } catch (err) {
+                console.error('Username check error:', err);
+                availabilityEl.textContent = '';
+            }
+        }
+
+        function checkPasswordStrength(password) {
+            const bar = document.getElementById('passwordStrengthBar');
+            const hints = document.getElementById('passwordHints');
+
+            bar.className = 'password-strength-bar';
+            hints.style.color = '#666';
+
+            if (!password) {
+                hints.textContent = 'Password should be at least 8 characters with uppercase, lowercase, and numbers';
+                return;
+            }
+
+            if (password.length < 8) {
+                bar.className += ' weak';
+                hints.textContent = 'Password too short (min 8 characters)';
+                hints.style.color = '#ff4d4f';
+                return;
+            }
+
+            const hasUpper = /[A-Z]/.test(password);
+            const hasLower = /[a-z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            const hasSpecial = /[!@#$%^&*]/.test(password);
+
+            let strength = hasUpper + hasLower + hasNumber + hasSpecial;
+
+            if (strength < 2) {
+                bar.className += ' weak';
+                hints.textContent = 'Weak password - add more character types';
+                hints.style.color = '#ff4d4f';
+            } else if (strength < 4) {
+                bar.className += ' medium';
+                hints.textContent = 'Medium strength - could be stronger';
+                hints.style.color = '#ffa502';
+            } else {
+                bar.className += ' strong';
+                hints.textContent = 'Strong password!';
+                hints.style.color = '#2ed573';
+            }
+        }
+
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('name').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorMessage = document.getElementById('errorMessage');
+            const registerBtn = document.getElementById('registerBtn');
+
+            errorMessage.textContent = '';
+            registerBtn.disabled = true;
+            registerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registering...';
+
+            try {
+                if (!name || !username || !email || !password) {
+                    throw new Error('All fields are required');
+                }
+
+                if (username.length < 2) {
+                    throw new Error('Username must be at least 2 characters');
+                }
+
+                if (password.length < 8) {
+                    throw new Error('Password must be at least 8 characters');
+                }
+
+                const res = await fetch('http://localhost:5000/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name,
+                        username,
+                        email,
+                        password
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.message || 'Registration failed');
+                }
+
+                alert('Registration successful! Please login.');
+                window.location.href = 'login.html';
+            } catch (err) {
+                console.error('Registration error:', err);
+                errorMessage.textContent = err.message || 'An error occurred during registration.';
+            } finally {
+                registerBtn.disabled = false;
+                registerBtn.innerHTML = 'Register';
+            }
+        });
+
+        if (localStorage.getItem('token')) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+
+</html>

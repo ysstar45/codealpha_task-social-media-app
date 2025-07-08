@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brainstrom Social</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="../css/main.css" />
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-brain"></i> Brainstrom</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="active"><i class="fas fa-home"></i> Home</a>
+                <a href="profile.html"><i class="fas fa-user"></i> Profile</a>
+                <a href="#"><i class="fas fa-bell"></i> Notifications</a>
+                <a href="#"><i class="fas fa-envelope"></i> Messages</a>
+            </nav>
+            <div class="sidebar-footer">
+                <button onclick="logout()" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search Brainstrom" />
+                </div>
+                <div id="welcomeUser" class="user-info"></div>
+            </div>
+
+            <div class="content-wrapper">
+                <!-- Create Post -->
+                <div class="create-post">
+                    <form id="postForm" enctype="multipart/form-data" class="post-form">
+                        <div class="post-input">
+                            <img id="userAvatar" src="https://via.placeholder.com/40" alt="User" class="user-avatar" />
+                            <textarea id="caption" name="caption" placeholder="What's on your mind?"></textarea>
+                        </div>
+                        <div class="post-actions">
+                            <label for="image" class="file-upload">
+                                <i class="fas fa-image"></i> Photo
+                                <input type="file" name="image" id="image" accept="image/*" hidden />
+                            </label>
+                            <button type="submit" class="post-btn">Post</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Posts Feed -->
+                <div class="posts-feed">
+                    <h2><i class="fas fa-newspaper"></i> News Feed</h2>
+                    <div id="postsContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const user = JSON.parse(localStorage.getItem("user"));
+        const token = localStorage.getItem("token");
+
+        if (!user || !token) {
+            alert("You must log in first.");
+            window.location.href = "login.html";
+        } else {
+            const displayName = user.username || user.name || "Guest";
+            document.getElementById("welcomeUser").innerHTML = `
+                <img src="https://via.placeholder.com/40/007bff/ffffff?text=${displayName.charAt(0).toUpperCase()}" class="profile-pic" />
+                <span>${displayName}</span>`;
+            document.getElementById("userAvatar").src =
+                `https://via.placeholder.com/40/007bff/ffffff?text=${displayName.charAt(0).toUpperCase()}`;
+        }
+
+        function logout() {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+        }
+
+        async function loadPosts() {
+            try {
+                const res = await fetch("http://localhost:5000/api/posts", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) throw new Error("Failed to load posts");
+                const {
+                    data: {
+                        posts
+                    }
+                } = await res.json();
+
+                const container = document.getElementById("postsContainer");
+                container.innerHTML = "";
+
+                posts.forEach(post => {
+                            const author = post.author || {};
+                            const username = author.username || "Unknown";
+                            const avatarInitial = username.charAt(0).toUpperCase();
+
+                            const postDiv = document.createElement("div");
+                            postDiv.className = "post-card";
+
+                            const imageHtml = post.image ?
+                                `<img src="http://localhost:5000/${post.image}" class="post-image" />` :
+                                "";
+
+                            const isLiked = post.likes.includes(user._id);
+                            const likeClass = isLiked ? "liked" : "";
+
+                            postDiv.innerHTML = `
+                        <div class="post-header">
+                            <img src="https://via.placeholder.com/40/007bff/ffffff?text=${avatarInitial}" class="post-user-avatar" />
+                            <div class="post-user-info">
+                                <strong>${username}</strong>
+                                <small>${new Date(post.createdAt).toLocaleString()}</small>
+                            </div>
+                        </div>
+                        <div class="post-content">
+                            <p>${post.caption || ""}</p>
+                            ${imageHtml}
+                        </div>
+                        <div class="post-stats">
+                            <span>${post.likes.length} likes</span>
+                            <span>${post.comments.length} comments</span>
+                        </div>
+                        <div class="post-actions">
+                            <button onclick="likePost('${post._id}')" class="${likeClass}">
+                                <i class="fas fa-thumbs-up"></i> Like
+                            </button>
+                            <button onclick="focusComment('${post._id}')">
+                                <i class="fas fa-comment"></i> Comment
+                            </button>
+                        </div>
+                        <div class="post-comments" id="comments-${post._id}">
+                            <form onsubmit="commentPost(event, '${post._id}')" class="comment-form">
+                                <input type="text" name="comment" placeholder="Write a comment..." required />
+                                <button type="submit"><i class="fas fa-paper-plane"></i></button>
+                            </form>
+                            <div class="comments-list">
+                                ${post.comments.map(c => `
+                                    <div class="comment">
+                                        <strong>${c.user?.username || "Anon"}:</strong> <span>${c.text}</span>
+                                    </div>
+                                `).join("")}
+                            </div>
+                        </div>
+                    `;
+
+                    container.appendChild(postDiv);
+                });
+            } catch (err) {
+                console.error("Error loading posts:", err);
+                document.getElementById("postsContainer").innerHTML =
+                    `<div class="error">Failed to load posts. Please try again.</div>`;
+            }
+        }
+
+        document.getElementById("postForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const caption = document.getElementById("caption").value.trim();
+            const image = document.getElementById("image").files[0];
+
+            if (!caption && !image) {
+                alert("Post cannot be empty");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("caption", caption);
+            if (image) formData.append("image", image);
+
+            try {
+                const res = await fetch("http://localhost:5000/api/posts", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: formData,
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.message || "Failed to post");
+                }
+
+                document.getElementById("postForm").reset();
+                loadPosts();
+            } catch (err) {
+                alert(err.message);
+                console.error(err);
+            }
+        });
+
+        async function likePost(postId) {
+            try {
+                const res = await fetch(`http://localhost:5000/api/posts/${postId}/like`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!res.ok) throw new Error("Failed to like post");
+                loadPosts();
+            } catch (err) {
+                console.error(err);
+                alert("Failed to like post");
+            }
+        }
+
+        async function commentPost(event, postId) {
+            event.preventDefault();
+            const text = event.target.comment.value.trim();
+            if (!text) return;
+
+            try {
+                const res = await fetch(`http://localhost:5000/api/posts/${postId}/comment`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ text }),
+                });
+
+                if (!res.ok) throw new Error("Failed to add comment");
+
+                event.target.comment.value = "";
+                loadPosts();
+            } catch (err) {
+                console.error(err);
+                alert("Failed to add comment");
+            }
+        }
+
+        function focusComment(postId) {
+            const section = document.getElementById(`comments-${postId}`);
+            const input = section.querySelector("input[name='comment']");
+            input.focus();
+        }
+
+        loadPosts();
+    </script>
+</body>
+
+</html>

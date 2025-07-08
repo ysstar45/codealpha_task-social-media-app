@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Profile - Mindspawn</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="../css/main.css">
+    <style>
+        .profile-section {
+            margin-bottom: 2rem;
+        }
+        
+        .profile-card {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+        
+        .profile-pic-large {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 1rem;
+        }
+        
+        .user-posts-section {
+            margin-top: 2rem;
+        }
+        
+        .user-posts-section h2 {
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-brain"></i> Mindspawn</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="index.html"><i class="fas fa-home"></i> Home</a>
+                <a href="profile.html" class="active"><i class="fas fa-user"></i> Profile</a>
+                <a href="#"><i class="fas fa-bell"></i> Notifications</a>
+                <a href="#"><i class="fas fa-envelope"></i> Messages</a>
+            </nav>
+            <div class="sidebar-footer">
+                <button onclick="logout()" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search Mindspawn" />
+                </div>
+                <div id="welcomeUser" class="user-info"></div>
+            </div>
+
+            <div class="content-wrapper">
+                <!-- Profile Section -->
+                <div class="profile-section">
+                    <h2><i class="fas fa-user-circle"></i> Your Profile</h2>
+                    <div id="profileDetails" class="profile-card">
+                        <p>Loading profile...</p>
+                    </div>
+                </div>
+
+                <!-- User Posts Section -->
+                <div class="user-posts-section">
+                    <h2><i class="fas fa-newspaper"></i> Your Posts</h2>
+                    <div id="userPosts">
+                        <p>Loading posts...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const user = JSON.parse(localStorage.getItem("user"));
+        const token = localStorage.getItem("token");
+
+        if (!user || !token) {
+            alert("You must log in first.");
+            window.location.href = "login.html";
+        } else {
+            document.getElementById("welcomeUser").innerHTML = `
+        <img src="https://via.placeholder.com/40/007bff/ffffff?text=${user.username.charAt(0).toUpperCase()}" 
+             class="profile-pic" />
+        <span>${user.username}</span>
+      `;
+        }
+
+        function logout() {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            window.location.href = "login.html";
+        }
+
+        // Load profile info
+        async function loadProfile() {
+            try {
+                const res = await fetch(`http://localhost:5000/api/users/${user._id}`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+
+                if (!res.ok) throw new Error("Failed to load profile");
+
+                const data = await res.json();
+                const userData = data.data.user;
+
+                document.getElementById("profileDetails").innerHTML = `
+          <img src="https://via.placeholder.com/100/007bff/ffffff?text=${userData.username.charAt(0).toUpperCase()}" 
+               class="profile-pic-large" />
+          <h3>${userData.name} (@${userData.username})</h3>
+          <p><strong>Email:</strong> ${userData.email}</p>
+          <p><strong>Followers:</strong> ${userData.followers.length}</p>
+          <p><strong>Following:</strong> ${userData.following.length}</p>
+          <p><strong>Member since:</strong> ${new Date(userData.createdAt).toLocaleDateString()}</p>
+        `;
+            } catch (err) {
+                console.error("Profile Error:", err);
+                document.getElementById("profileDetails").innerHTML = `
+          <div class="error">Failed to load profile. Please try again.</div>
+        `;
+            }
+        }
+
+        // Load user posts
+        async function loadUserPosts() {
+            try {
+                const res = await fetch(`http://localhost:5000/api/posts/user/${user._id}`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
+
+                if (!res.ok) throw new Error("Failed to load posts");
+
+                const data = await res.json();
+                const posts = data.data.posts;
+                const container = document.getElementById("userPosts");
+                container.innerHTML = "";
+
+                if (posts.length === 0) {
+                    container.innerHTML = "<p>You haven't posted anything yet.</p>";
+                    return;
+                }
+
+                posts.forEach(post => {
+                    const postDiv = document.createElement("div");
+                    postDiv.className = "post-card";
+
+                    const imageHtml = post.image ?
+                        `<img src="http://localhost:5000/${post.image}" class="post-image" />` :
+                        "";
+
+                    postDiv.innerHTML = `
+            <div class="post-header">
+              <img src="https://via.placeholder.com/40/007bff/ffffff?text=${user.username.charAt(0).toUpperCase()}" 
+                   class="post-user-avatar" />
+              <div class="post-user-info">
+                <strong>You</strong>
+                <small>${new Date(post.createdAt).toLocaleString()}</small>
+              </div>
+            </div>
+            <div class="post-content">
+              <p>${post.caption || ""}</p>
+              ${imageHtml}
+            </div>
+            <div class="post-stats">
+              <span>${post.likes.length} likes</span>
+              <span>${post.comments.length} comments</span>
+            </div>
+          `;
+                    container.appendChild(postDiv);
+                });
+            } catch (err) {
+                console.error("Post load error:", err);
+                document.getElementById("userPosts").innerHTML = `
+          <div class="error">Failed to load posts. Please try again.</div>
+        `;
+            }
+        }
+
+        // Initial load
+        loadProfile();
+        loadUserPosts();
+    </script>
+</body>
+
+</html>
